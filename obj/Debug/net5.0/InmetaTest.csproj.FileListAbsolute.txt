@@ -27,3 +27,9 @@ C:\TestProjects\InmetaTest\obj\Debug\net5.0\InmetaTest.dll
 C:\TestProjects\InmetaTest\obj\Debug\net5.0\ref\InmetaTest.dll
 C:\TestProjects\InmetaTest\obj\Debug\net5.0\InmetaTest.pdb
 C:\TestProjects\InmetaTest\obj\Debug\net5.0\InmetaTest.genruntimeconfig.cache
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\System.Data.SqlClient.dll
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\runtimes\win-arm64\native\sni.dll
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\runtimes\win-x64\native\sni.dll
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\runtimes\win-x86\native\sni.dll
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\runtimes\unix\lib\netcoreapp2.1\System.Data.SqlClient.dll
+C:\TestProjects\InmetaTest\bin\Debug\net5.0\runtimes\win\lib\netcoreapp2.1\System.Data.SqlClient.dll
