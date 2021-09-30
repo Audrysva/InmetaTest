@@ -91,6 +91,7 @@ namespace InmetaTest.Repositories
         public IEnumerable<Order> GetOrders()
         {
             var conn = GetOpenConnection();
+            
             string query = @"SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price  FROM orders o JOIN products p on p.OrderID=o.id";
             
             SqlCommand cmd = new SqlCommand(query, conn);
@@ -104,32 +105,18 @@ namespace InmetaTest.Repositories
                 while (dr.Read())
                 {
                     var orderId = dr.GetGuid(0);
-                    var product = new Product
-                    {
-                        Id = dr.GetGuid(1),
-                        Name = dr.GetString(2),
-                        Qty = dr.GetInt32(3),
-                        Price = dr.GetDecimal(4)
-                    };
+                    var product = CreateProduct(dr);
                     var existingOrder = orderList.Where(x => x.Id == orderId);
                     if (existingOrder.Any())
                     {
-                        orderList.Where(o => o.Id == orderId).FirstOrDefault().Products.Add(product);
+                        existingOrder.FirstOrDefault().Products.Add(product);
                     }
                     else
                     {
-                        
-                        var order = new Order
-                        {
-                            Id = dr.GetGuid(0),
-                            Products = new ()
-                            {
-                                product
-                            }
-                        };
+                        var order = CreateOrder(dr);
+                        order.Products.Add(product);
                         orderList.Add(order);
                     }
-
                 }
             }
             
@@ -137,6 +124,28 @@ namespace InmetaTest.Repositories
             
             conn.Close();
             return orderList.ToArray();
+        }
+
+        private static Order CreateOrder(SqlDataReader dr)
+        {
+            var order = new Order
+            {
+                Id = dr.GetGuid(0),
+                Products = new()
+            };
+            return order;
+        }
+
+        private static Product CreateProduct(SqlDataReader dr)
+        {
+            var product = new Product
+            {
+                Id = dr.GetGuid(1),
+                Name = dr.GetString(2),
+                Qty = dr.GetInt32(3),
+                Price = dr.GetDecimal(4)
+            };
+            return product;
         }
     }
 }
