@@ -1,81 +1,25 @@
 ﻿using InmetaTest.Entities;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Threading.Tasks;
-using InmetaTest.Dtos;
+
 using Microsoft.Extensions.Configuration;
 
 namespace InmetaTest.Repositories
 {
     public class OrdersRepository : IOrdersRepository
     {
-        private static readonly List<Product> OperationalSystems= new()
-        {
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                Name = "Windows 11",
-                Qty = 10,
-                Price = 1000,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                Name = "Linux Cent OS",
-                Qty = 20,
-                Price = 10,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-        };
-        
-        private static readonly List<Product> software = new()
-        {
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                Name = "Office 365",
-                Qty = 10,
-                Price = 1000,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                Name = "VS 2019",
-                Qty = 20,
-                Price = 10000,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-        };
-
-        private readonly List<Order> orders = new()
-        {
-            new Order
-            {
-                Id = Guid.NewGuid(),
-                Products = OperationalSystems
-            },
-            new Order
-            {
-                Id = Guid.NewGuid(),
-                Products = software
-            }
-
-        };
-        
         private readonly string connectionString;
 
         private readonly IConfiguration config;
+        
+        private static List<Order> _orderList = new ();
 
         public OrdersRepository(IConfiguration config) {
             this.config = config;
         }
         public SqlConnection GetOpenConnection() {
-            // string cs = config["Data:DefaultConnection:ConnectionString"];
             string cs = config.GetConnectionString("DefaultConnection");
             SqlConnection connection = new SqlConnection(cs);
             connection.Open();
@@ -84,49 +28,128 @@ namespace InmetaTest.Repositories
 
         public Order GetOrder(Guid id)
         {
-            var sqlConnection = GetOpenConnection();
-            return orders.SingleOrDefault(order => order.Id == id);
+            _orderList = new ();
+            var order = new Order();
+            var conn = GetOpenConnection();
+            var reader = SelectOrder(conn,id);
+
+            if (reader.HasRows)
+            {
+                while (reader.Read())
+                {
+                    order = OrdersOf(reader).FirstOrDefault();
+                }
+            }
+            
+            reader.Close();
+            
+            conn.Close();
+            
+            return order;
+            //return orders.SingleOrDefault(order => order.Id == id);
         }
 
         public IEnumerable<Order> GetOrders()
         {
+            _orderList = new ();
+            
             var conn = GetOpenConnection();
             
-            string query = @"SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price  FROM orders o JOIN products p on p.OrderID=o.id";
-            
-            SqlCommand cmd = new SqlCommand(query, conn);
+            var reader = SelectOrders(conn);
 
-            SqlDataReader dr = cmd.ExecuteReader();
-
-            var orderList = new List<Order>();
-
-            if (dr.HasRows)
+            if (reader.HasRows)
             {
-                while (dr.Read())
+                while (reader.Read())
                 {
-                    var orderId = dr.GetGuid(0);
-                    var product = CreateProduct(dr);
-                    var existingOrder = orderList.Where(x => x.Id == orderId);
-                    if (existingOrder.Any())
-                    {
-                        existingOrder.FirstOrDefault().Products.Add(product);
-                    }
-                    else
-                    {
-                        var order = CreateOrder(dr);
-                        order.Products.Add(product);
-                        orderList.Add(order);
-                    }
+                    _orderList = OrdersOf(reader);
                 }
             }
             
-            dr.Close();
+            reader.Close();
             
             conn.Close();
-            return orderList.ToArray();
+            
+            return _orderList.ToArray();
         }
 
-        private static Order CreateOrder(SqlDataReader dr)
+        public void CreateOrder(Order order)
+        {
+            var conn = GetOpenConnection();
+            SaveOrder(conn,order);
+            conn.Close();
+        }
+
+        private void SaveOrder(SqlConnection conn, Order order)
+        {
+            string query =
+                @"INSERT INTO orders (Id,CreatedAt) VALUES (NEWID(),CURRENT_TIMESTAMP)";
+
+            SqlCommand cmd = new SqlCommand(query, conn);
+
+            cmd.ExecuteReader();
+
+            query = "INSERT INTO Products (Id,CreatedAt,OrderId,Name,Qty,Price) VALUES (NEWID(),CURRENT_TIMESTAMP,scope_identity(),@Name,@Qty,@Price);";
+            
+            cmd = new SqlCommand(query, conn);
+            
+            cmd.Parameters.Add("@Name",System.Data.SqlDbType.VarChar);
+            cmd.Parameters["@Name"].Value = order.Products.FirstOrDefault().Name;    
+            
+            cmd.Parameters.Add("@Qty",System.Data.SqlDbType.Int);
+            cmd.Parameters["@Qty"].Value = order.Products.FirstOrDefault().Qty;  
+            
+            cmd.Parameters.Add("@Price",System.Data.SqlDbType.Decimal);
+            cmd.Parameters["@Price"].Value = order.Products.FirstOrDefault().Price;
+
+            SqlDataReader dr = cmd.ExecuteReader();
+        }
+
+
+        private static List<Order> OrdersOf(SqlDataReader reader)
+        {
+            var orderId = reader.GetGuid(0);
+            var product = ReaderToProduct(reader);
+            var existingOrder = _orderList.Where(x => x.Id == orderId);
+            if (existingOrder.Any())
+            {
+                existingOrder.FirstOrDefault().Products.Add(product);
+            }
+            else
+            {
+                var order = ReaderToOrder(reader);
+                order.Products.Add(product);
+                _orderList.Add(order);
+            }
+
+            return _orderList;
+        }
+
+        private static SqlDataReader SelectOrders(SqlConnection conn)
+        {
+            string query =
+                @"SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price  FROM orders o JOIN products p on p.OrderID=o.id";
+
+            SqlCommand cmd = new SqlCommand(query, conn);
+
+            SqlDataReader dr = cmd.ExecuteReader();
+            return dr;
+        } 
+        
+        private static SqlDataReader SelectOrder(SqlConnection conn, Guid id)
+        {
+            string query =
+                "SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price  FROM orders o JOIN products p on p.OrderID=o.id WHERE  o.Id=@Id";
+
+            SqlCommand cmd = new SqlCommand(query, conn);
+            
+            cmd.Parameters.Add("@Id",System.Data.SqlDbType.UniqueIdentifier);
+            cmd.Parameters["@Id"].Value = id;    
+
+            SqlDataReader dr = cmd.ExecuteReader();
+            return dr;
+        }
+
+        private static Order ReaderToOrder(SqlDataReader dr)
         {
             var order = new Order
             {
@@ -136,7 +159,7 @@ namespace InmetaTest.Repositories
             return order;
         }
 
-        private static Product CreateProduct(SqlDataReader dr)
+        private static Product ReaderToProduct(SqlDataReader dr)
         {
             var product = new Product
             {

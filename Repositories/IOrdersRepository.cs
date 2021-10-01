@@ -11,6 +11,8 @@ namespace InmetaTest.Repositories
     {
         Order GetOrder(Guid id);
         IEnumerable<Order> GetOrders();
-        
+
+        void CreateOrder(Order order);
+
     }
 }
