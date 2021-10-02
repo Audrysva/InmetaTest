@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using InmetaTest.Entities;
 
 namespace InmetaTest.Controllers
 {
@@ -38,7 +38,32 @@ namespace InmetaTest.Controllers
             //    return NotFound();
             //}
             return order.AsDto();
+        }      
+        
+        //POST /orders
+        [HttpPost]
+        public ActionResult<OrderDto> CreateOrder(CreateOrderDto orderDto)
+        {
+            List<Service> products = new();
+            if (orderDto.Products.Count == 0)
+            {
+                throw new NullReferenceException();
+            }
+
+            Order order = new Order()
+            {
+                Id = new Guid(),
+                Services = orderDto.Products
+            };
+            
+            repository.CreateOrder(order);
+            return order.AsDto();
         }
 
+    }
+
+    public class CreateOrderDto
+    {
+        public List<Service> Products { get; set; }
     }
 }

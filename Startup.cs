@@ -11,6 +11,7 @@ namespace InmetaTest
 {
     public class Startup
     {
+        readonly string MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -20,8 +21,19 @@ namespace InmetaTest
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddCors(options =>
+            {
+                options.AddPolicy(name: MyAllowSpecificOrigins,
+                    builder =>
+                    {
+                        builder.WithOrigins("https://localhost:5001",
+                            "http://localhost:5000");
+                    });
+            });
             services.AddSingleton(_ => Configuration);
+            services.AddSingleton<ICustomersRepository, CustomersRepository>();
             services.AddSingleton<IOrdersRepository, OrdersRepository>();
+            services.AddSingleton<IAddressesRepository, AddressesRepository>();
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
@@ -43,6 +55,8 @@ namespace InmetaTest
 
             app.UseRouting();
 
+            app.UseCors(MyAllowSpecificOrigins);
+            
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>

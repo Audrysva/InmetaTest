@@ -10,27 +10,58 @@ namespace InmetaTest.Helpers
 {
     public static class Extentions
     {
-        public static ProductDto AsDto(this Product product)
+        public static ServiceDto AsDto(this Service service)
         {
-            return new ProductDto
+            return new ServiceDto
             {
-                Id = product.Id,
-                Name = product.Name,
-                Qty = product.Qty,
-                Price = product.Price,
-                CreatedAt = product.CreatedAt
+                Id = service.Id,
+                CreatedAt = service.CreatedAt
             };
         }
 
         public static OrderDto AsDto(this Order order)
         {
-            var products = order.Products.Select(product => product.AsDto()).ToList();
+            var products = order.Services.Select(product => product.AsDto()).ToList();
             return new OrderDto
             {
                 Id = order.Id,
-                Products = products
+                Customer = new Customer()
+                {
+                    Id = order.CustomerId,
+                    Name = order.CustomerName,
+                    PhoneNumber = order.PhoneNumber,
+                    EmailAddress = order.EmailAddress
+                },
+                AddressFrom = new Address()
+                {
+                    Id = order.AddressFromId,
+                    Zip = order.FromZip,
+                    City = order.FromCity,
+                    Street = order.FromStreet,
+                    Number = order.FromNumber,
+                    CountryCode = order.FromCountryCode
+                },
+                AddressTo = new Address()
+                {
+                    Id = order.AddressToId,
+                    Zip = order.ToZip,
+                    City = order.ToCity,
+                    Street = order.ToStreet,
+                    Number = order.ToNumber,
+                    CountryCode = order.ToCountryCode
+                },
+                Services = new()
+                {
+                    new Service()
+                    {
+                        OrderId = order.Id,
+                        TypeId = (EServiceTypes)order.ServiceTypeId,
+                        DateFrom = order.DateFrom,
+                        DateTo = order.DateTo
+                    }
+                },
+                OrderNotes = order.OrderNotes
             };
         }
-
     }
 }
