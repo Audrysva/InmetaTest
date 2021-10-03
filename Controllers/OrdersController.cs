@@ -28,42 +28,55 @@ namespace InmetaTest.Controllers
             return orders;
         }
 
-        //GET /orders
-        [HttpGet("{id}")]
+        //GET /orders/{id}
+        [HttpGet("{id:guid}")]
         public ActionResult<OrderDto> GetOrder(Guid id)
         {
             var order = repository.GetOrder(id);
-            //if (order is null)
-            //{
-            //    return NotFound();
-            //}
-            return order.AsDto();
-        }      
-        
-        //POST /orders
-        [HttpPost]
-        public ActionResult<OrderDto> CreateOrder(CreateOrderDto orderDto)
-        {
-            List<Service> products = new();
-            if (orderDto.Products.Count == 0)
+            if (order is null)
             {
-                throw new NullReferenceException();
+                return new NotFoundResult();
             }
-
-            Order order = new Order()
-            {
-                Id = new Guid(),
-                Services = orderDto.Products
-            };
-            
-            repository.CreateOrder(order);
             return order.AsDto();
         }
 
-    }
-
-    public class CreateOrderDto
-    {
-        public List<Service> Products { get; set; }
+        //POST /orders
+        [HttpPost]
+        public ActionResult<OrderDto> CreateOrder(OrderDto orderDto)
+        {
+            Order order = new Order()
+            {
+                Id = Guid.NewGuid(),
+                
+            };
+            repository.CreateOrder(orderDto);
+            return orderDto;
+        }
+        
+        //PUT /orders/{id}
+        [HttpPut("{id:guid}")]
+        public ActionResult<OrderDto> UpdateOrder(Guid id,OrderDto orderDto)
+        {
+            var existingOrder = repository.GetOrder(id);
+            if (existingOrder is null)
+            {
+                return new NotFoundResult();
+            }
+            repository.UpdateOrder(orderDto);
+            return orderDto;
+        }
+        
+        //DELETE /orders/{id}
+        [HttpDelete("{id:guid}")]
+        public IActionResult DeleteOrder(Guid id)
+        {
+            var existingOrder = repository.GetOrder(id);
+            if (existingOrder is null)
+            {
+                return new NotFoundResult();
+            }
+            repository.DeleteOrder(id);
+            return new NoContentResult();
+        }
     }
 }

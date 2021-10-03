@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.IO;
 using System.Linq;
+using InmetaTest.Dtos;
 using Microsoft.Extensions.Configuration;
 
 namespace InmetaTest.Repositories
@@ -30,7 +32,6 @@ namespace InmetaTest.Repositories
 
         public Order GetOrder(Guid id)
         {
-            _orderList = new();
             var order = new Order();
             var conn = GetOpenConnection();
             var reader = SelectOrder(conn, id);
@@ -70,83 +71,186 @@ namespace InmetaTest.Repositories
 
             conn.Close();
 
-            return _orderList.ToArray();
+            return _orderList;
         }
 
 
-        public void CreateOrder(Order order)
+        public void CreateOrder(OrderDto orderDto)
         {
-            var conn = GetOpenConnection();
-            SaveOrder(conn, order);
-            conn.Close();
+            try
+            {
+                var conn = GetOpenConnection();
+                var customerId = EnsureCustomer(conn, orderDto.Customer);
+                var addressFromId = EnsureAddress(conn, orderDto.AddressFrom);
+                var addressToId = EnsureAddress(conn, orderDto.AddressTo);
+                Order order = new Order()
+                {
+                    Id = Guid.NewGuid(),
+                    CustomerId = customerId,
+                    AddressFromId = addressFromId,
+                    AddressToId = addressToId,
+                    OrderNotes = orderDto.OrderNotes
+                };
+                AddOrder(conn, order);
+                AddServices(conn, order.Id, order.Services);
+                conn.Close();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
+            }
         }
 
-        public void DeleteOrder(Guid id)
+        public void UpdateOrder(OrderDto order)
         {
             throw new NotImplementedException();
         }
 
-        private void SaveOrder(SqlConnection conn, Order order)
+        public void DeleteOrder(Guid id)
         {
-            string query =
-                @"INSERT INTO orders (Id,CreatedAt) VALUES (NEWID(),CURRENT_TIMESTAMP)";
-
-            SqlCommand cmd = new SqlCommand(query, conn);
-
-            cmd.Parameters.Add("@Id", System.Data.SqlDbType.UniqueIdentifier);
-            cmd.Parameters["@Id"].Value = order.Id;
-
-            cmd.ExecuteReader();
-
-            foreach (var product in order.Services)
+            try
             {
-                InsertProductToDb(conn, order.Id, product);
+                var conn = GetOpenConnection();
+                string query = "DELETE FROM Orders WHERE Id=@Id";
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+                cmd.Parameters.Add("@Id", System.Data.SqlDbType.UniqueIdentifier);
+                cmd.Parameters["@Id"].Value = id;
+
+                SqlDataReader dr = cmd.ExecuteReader();
+                conn.Close();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
             }
         }
 
-        private static void InsertProductToDb(SqlConnection conn, Guid orderId, Service service)
+        private void AddServices(SqlConnection conn, Guid orderId, List<Service> orderServices)
         {
-            string query =
-                "INSERT INTO Products (Id,CreatedAt,OrderId,Name,Qty,Price) VALUES (NEWID(),CURRENT_TIMESTAMP,@OrderId,@Name,@Qty,@Price);";
-
-            SqlCommand cmd = new SqlCommand(query, conn);
-
-            cmd.Parameters.Add("@OrderId", System.Data.SqlDbType.UniqueIdentifier);
-            cmd.Parameters["@OrderId"].Value = orderId;
-
-
-            SqlDataReader dr = cmd.ExecuteReader();
+            throw new NotImplementedException();
         }
 
 
+        private Guid AddOrder(SqlConnection conn, Order order)
+        {
+            throw new NotImplementedException();
+        }
+
+        private Guid EnsureAddress(SqlConnection conn, Address address)
+        {
+            //Not implemented
+            var addressId = address.Id == Guid.Empty ? new Guid() : address.Id;
+
+            return addressId;
+        }
+
+        private Guid EnsureCustomer(SqlConnection conn, Customer customer)
+        {
+            try
+            {
+                var customerId = (customer.Id == Guid.Empty) ? new Guid() : customer.Id;
+                string query = (customer.Id == Guid.Empty)
+                    ? "INSERT INTO Customers (Id,Name,PhoneNumber,EmailAddress) VALUES (@Id,@Name,@PhoneNumber,@EmailAddress)"
+                    : "UPDATE Customers SET Name = @name WHERE Id=@Id";
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+
+                cmd.Parameters.Add("@Id", System.Data.SqlDbType.UniqueIdentifier);
+                cmd.Parameters["@Id"].Value = customerId;
+
+                cmd.Parameters.Add("@Name", System.Data.SqlDbType.VarChar);
+                cmd.Parameters["@Name"].Value = customer.Name;
+
+                cmd.Parameters.Add("@PhoneNumber", System.Data.SqlDbType.VarChar);
+                cmd.Parameters["@PhoneNumber"].Value = customer.PhoneNumber;
+
+                cmd.Parameters.Add("@EmailAddress", System.Data.SqlDbType.VarChar);
+                cmd.Parameters["@EmailAddress"].Value = customer.EmailAddress;
+
+
+                SqlDataReader dr = cmd.ExecuteReader();
+                return customerId;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
+            }
+        }
+
         private static SqlDataReader SelectOrders(SqlConnection conn)
         {
-            string query =
-                @"SELECT Id,CustomerId,CustomerPhoneNumber,CustomerEmail,CustomerName,AddressFromId,AddressToId,OrderNotes,ServiceTypeId,DateFrom,DateTo,FromZip,FromCity,FromStreet,FromNumber,FromCountryCode,ToZip,ToCity,ToStreet,ToNumber,ToCountryCode FROM v_Orders";
+            try
+            {
+                string query =
+                    @"SELECT Id,CustomerId,CustomerPhoneNumber,CustomerEmail,CustomerName,AddressFromId,AddressToId,
+                        OrderNotes,ServiceTypeId,DateFrom,DateTo,FromZip,FromCity,FromStreet,FromNumber,
+                        FromCountryCode,ToZip,ToCity,ToStreet,ToNumber,ToCountryCode 
+                    FROM v_Orders";
 
-            SqlCommand cmd = new SqlCommand(query, conn);
+                SqlCommand cmd = new SqlCommand(query, conn);
 
-            SqlDataReader dr = cmd.ExecuteReader();
-            return dr;
+                SqlDataReader dr = cmd.ExecuteReader();
+                return dr;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
+            }
+        }
+
+        private static SqlDataReader SelectOrder(SqlConnection conn, Guid id)
+        {
+            try
+            {
+                string query =
+                    "SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price " +
+                    " FROM orders o JOIN products p on p.OrderID=o.id WHERE  o.Id=@Id";
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+
+                cmd.Parameters.Add("@Id", System.Data.SqlDbType.UniqueIdentifier);
+                cmd.Parameters["@Id"].Value = id;
+
+                SqlDataReader dr = cmd.ExecuteReader();
+                return dr;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
+            }
         }
 
         private static List<Order> OrdersOf(SqlDataReader reader)
         {
-            var orderId = (Guid)reader["Id"];
-
-            var existingOrder = _orderList.Where(x => x.Id == orderId);
-            if (existingOrder.Any())
+            try
             {
-                // existingOrder.FirstOrDefault().Services.Add(product);
-            }
-            else
-            {
-                var order = ReaderToOrder(reader);
-                //order.Services.Add(service);
-                _orderList.Add(order);
-            }
+                var orderId = (Guid)reader["Id"];
+                Service service = new Service()
+                {
+                    OrderId = orderId,
+                    TypeId = (EServiceTypes)(Int16)reader["ServiceTypeId"],
+                    DateFrom = (DateTime)reader["DateFrom"],
+                    DateTo = (DateTime)reader["DateTo"]
+                };
+                var existingOrder = _orderList.Find(x => x.Id == orderId);
+                if (existingOrder is null)
+                {
+                    var order = ReaderToOrder(reader);
+                    order.Services.Add(service);
+                    _orderList.Add(order);
+                }
+                else
+                {
+                    existingOrder.Services.Add(service);
+                }
 
-            return _orderList;
+                return _orderList;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException();
+            }
         }
 
         private static Order ReaderToOrder(SqlDataReader dr)
@@ -177,30 +281,6 @@ namespace InmetaTest.Repositories
                 Services = new()
             };
             return order;
-        }
-
-        private static SqlDataReader SelectOrder(SqlConnection conn, Guid id)
-        {
-            string query =
-                "SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price  FROM orders o JOIN products p on p.OrderID=o.id WHERE  o.Id=@Id";
-
-            SqlCommand cmd = new SqlCommand(query, conn);
-
-            cmd.Parameters.Add("@Id", System.Data.SqlDbType.UniqueIdentifier);
-            cmd.Parameters["@Id"].Value = id;
-
-            SqlDataReader dr = cmd.ExecuteReader();
-            return dr;
-        }
-
-
-        private static Service ReaderToProduct(SqlDataReader dr)
-        {
-            var product = new Service
-            {
-                Id = dr.GetInt32(1)
-            };
-            return product;
         }
     }
 }

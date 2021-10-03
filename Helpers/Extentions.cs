@@ -21,7 +21,6 @@ namespace InmetaTest.Helpers
 
         public static OrderDto AsDto(this Order order)
         {
-            var products = order.Services.Select(product => product.AsDto()).ToList();
             return new OrderDto
             {
                 Id = order.Id,
@@ -50,16 +49,7 @@ namespace InmetaTest.Helpers
                     Number = order.ToNumber,
                     CountryCode = order.ToCountryCode
                 },
-                Services = new()
-                {
-                    new Service()
-                    {
-                        OrderId = order.Id,
-                        TypeId = (EServiceTypes)order.ServiceTypeId,
-                        DateFrom = order.DateFrom,
-                        DateTo = order.DateTo
-                    }
-                },
+                Services = order.Services,
                 OrderNotes = order.OrderNotes
             };
         }
