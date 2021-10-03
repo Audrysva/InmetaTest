@@ -38,6 +38,7 @@ namespace InmetaTest.Repositories
 
             if (reader.HasRows)
             {
+                _orderList = new List<Order>();
                 while (reader.Read())
                 {
                     order = OrdersOf(reader).FirstOrDefault();
@@ -61,6 +62,7 @@ namespace InmetaTest.Repositories
 
             if (reader.HasRows)
             {
+                _orderList = new List<Order>();
                 while (reader.Read())
                 {
                     _orderList = OrdersOf(reader);
@@ -204,8 +206,10 @@ namespace InmetaTest.Repositories
             try
             {
                 string query =
-                    "SELECT o.Id AS OrderId, p.Id AS ProductId,p.Name,p.Qty,p.Price " +
-                    " FROM orders o JOIN products p on p.OrderID=o.id WHERE  o.Id=@Id";
+                    "SELECT Id,CustomerId,CustomerPhoneNumber,CustomerEmail,CustomerName,AddressFromId,AddressToId,"+
+                    "OrderNotes,ServiceTypeId,DateFrom,DateTo,FromZip,FromCity,FromStreet,FromNumber,"+
+                    "FromCountryCode,ToZip,ToCity,ToStreet,ToNumber,ToCountryCode"+
+                    " FROM v_Orders WHERE  Id=@Id";
 
                 SqlCommand cmd = new SqlCommand(query, conn);
 
